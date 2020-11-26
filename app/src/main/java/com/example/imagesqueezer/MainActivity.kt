@@ -122,24 +122,6 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                     initializeImagePicker()
                 }
 
-                /*
-                var compressedFile: File
-                var compressedImageFile: File
-                val fileCreation = lifecycleOwner.lifecycleScope.async(Dispatchers.IO) {
-                    compressedFile = File(file.originalPath + "_compressed")
-                    if (!compressedFile.exists()) {
-                        try {
-                            compressedFile.createNewFile()
-                        } catch (e: IOException) {
-                            e.printStackTrace()
-                        }
-                    }
-                    lifecycleOwner.lifecycleScope.async(Dispatchers.IO) {
-                        compressedImageFile = Compressor.compress(context, compressedFile)
-
-                    }
-                }
-*/
                 imagePicker.submit(data)
             }
         }
