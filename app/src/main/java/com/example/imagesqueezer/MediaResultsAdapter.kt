@@ -2,6 +2,7 @@ package com.example.imagesqueezer
 
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import android.view.LayoutInflater
@@ -17,8 +18,7 @@ import com.bumptech.glide.annotation.GlideModule
 import com.kbeanie.multipicker.api.entity.ChosenFile
 import com.kbeanie.multipicker.api.entity.ChosenImage
 import id.zelory.compressor.Compressor
-import id.zelory.compressor.constraint.default
-import id.zelory.compressor.constraint.destination
+import id.zelory.compressor.constraint.*
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -86,23 +86,21 @@ class MediaResultsAdapter(private val files: List<ChosenFile>, private val conte
         tvOrientation.text =
             String.format(FORMAT_ORIENTATION, image.orientationName)
 
-
-
         view.setOnClickListener {
-            Log.i(
-                TAG,
-                "onClick: Tapped: " + image.originalPath
-            )
+            Log.i(TAG, "onClick: Tapped: " + image.originalPath)
+        }
 
-            runBlocking {
-                lifecycleOwner.lifecycleScope.async(Dispatchers.Main) {
-                    Compressor.compress(context, File(file.originalPath)) {
-                        default()
-                        destination(File(file.originalPath.substring(0, file.originalPath.indexOf(".jpg")) + "-compressed.jpg"))
-                    }
+        runBlocking {
+            lifecycleOwner.lifecycleScope.async(Dispatchers.Main) {
+                Compressor.compress(context, File(file.originalPath)) {
+                    resolution(800,600)
+                    quality(70)
+                    destination(File(file.originalPath))
+
                 }
-            }
 
+                //file.originalPath.substring(0, file.originalPath.indexOf(".jpg")) + "-compressed.jpg"
+            }
         }
 
     }

@@ -1,9 +1,12 @@
 package com.example.imagesqueezer
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipDescription
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.Menu
@@ -13,14 +16,13 @@ import android.widget.ListView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.snackbar.Snackbar
 import com.kbeanie.multipicker.api.ImagePicker
 import com.kbeanie.multipicker.api.Picker
 import com.kbeanie.multipicker.api.callbacks.ImagePickerCallback
 import com.kbeanie.multipicker.api.entity.ChosenImage
-import com.kbeanie.multipicker.core.ImagePickerImpl
-import com.kbeanie.multipicker.utils.LogUtils
+import java.io.File
 
 
 class MainActivity : AppCompatActivity(), ImagePickerCallback,
@@ -65,8 +67,7 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         setSupportActionBar(findViewById(R.id.toolbar))
 
         findViewById<FloatingActionButton>(R.id.fab).setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+            setIntentForResultAndFinish()
         }
 
         initializeImagePicker()
@@ -79,6 +80,56 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
 
         if (!allPermissionsGranted()) {
             runtimePermissions
+        }
+    }
+
+    private fun setIntentForResultAndFinish() {
+        val intent = Intent()
+        if (lvResults == null || lvResults!!.adapter == null) {
+            finish()
+            return
+        }
+        val results: MediaResultsAdapter = lvResults!!.adapter as MediaResultsAdapter
+        val files = ArrayList<Uri>()
+
+        val first = retrieveFileFromChosenImageAdapter(0, results)
+        var uri = retrieveUriFromFile(first)
+        setClipDataUri(uri, intent)
+
+        for (i in 1 until results.count) {
+            val file = retrieveFileFromChosenImageAdapter(i, results)
+            uri = retrieveUriFromFile(file)
+            setClipDataUri(uri, intent)
+
+            files.add(uri)
+        }
+
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        setResult(Activity.RESULT_OK, intent)
+        finish()
+    }
+
+    private fun retrieveFileFromChosenImageAdapter(atIndex: Int, results: MediaResultsAdapter): File{
+        return File((results.getItem(atIndex) as ChosenImage).originalPath)
+    }
+
+    private fun retrieveUriFromFile(file: File): Uri {
+        return FileProvider.getUriForFile(
+            this@MainActivity,
+            BuildConfig.APPLICATION_ID + ".provider",
+            file
+        )
+    }
+
+    private fun setClipDataUri(uri: Uri, intent: Intent) {
+        val mimetypes = arrayOf("image/*")
+        if (intent.clipData == null) {
+            intent.clipData = ClipData(
+                ClipDescription("uri", mimetypes),
+                ClipData.Item(uri)
+            )
+        } else {
+            intent.clipData!!.addItem(ClipData.Item(uri))
         }
     }
 
@@ -121,7 +172,6 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                 if (imagePicker == null) {
                     initializeImagePicker()
                 }
-
                 imagePicker.submit(data)
             }
         }
