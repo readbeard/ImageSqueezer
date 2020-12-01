@@ -8,15 +8,20 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.Button
 import android.widget.ListView
+import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.graphics.PathUtils
+import androidx.lifecycle.Observer
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.kbeanie.multipicker.api.ImagePicker
 import com.kbeanie.multipicker.api.Picker
@@ -28,7 +33,10 @@ import java.io.File
 class MainActivity : AppCompatActivity(), ImagePickerCallback,
     ActivityCompat.OnRequestPermissionsResultCallback {
     private lateinit var imagePicker: ImagePicker
-    private var lvResults: ListView? = null
+    private lateinit var lvResults: ListView
+    private lateinit var loadingProgressBar: ProgressBar
+    private lateinit var importPicturesButton: Button
+
     private val requiredPermissions: Array<String?>
         get() = try {
             val info = this.packageManager
@@ -77,6 +85,10 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         }
 
         lvResults = findViewById<ListView>(R.id.lvResults);
+        loadingProgressBar = findViewById(R.id.progressBar_cyclic)
+        importPicturesButton = findViewById(R.id.button_contentmain_pick)
+
+        deleteDir(File(Environment.getExternalStorageDirectory().absolutePath + "/ImageSqueezer/ImageSqueezer Pictures"))
 
         if (!allPermissionsGranted()) {
             runtimePermissions
@@ -93,6 +105,9 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         val files = ArrayList<Uri>()
 
         val first = retrieveFileFromChosenImageAdapter(0, results)
+        lvResults.visibility = View.GONE
+        loadingProgressBar.visibility = View.VISIBLE
+        compressFile(first, results.count == 1)
         var uri = retrieveUriFromFile(first)
         setClipDataUri(uri, intent)
 
@@ -100,16 +115,22 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
             val file = retrieveFileFromChosenImageAdapter(i, results)
             uri = retrieveUriFromFile(file)
             setClipDataUri(uri, intent)
-
             files.add(uri)
+        }
+
+        if (first.parentFile.listFiles() != null) {
+            for (f in first.parentFile.listFiles()) {
+                if (f.name.contains("scale")) {
+                    f.delete()
+                }
+            }
         }
 
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         setResult(Activity.RESULT_OK, intent)
-        finish()
     }
 
-    private fun retrieveFileFromChosenImageAdapter(atIndex: Int, results: MediaResultsAdapter): File{
+    private fun retrieveFileFromChosenImageAdapter(atIndex: Int, results: MediaResultsAdapter): File {
         return File((results.getItem(atIndex) as ChosenImage).originalPath)
     }
 
@@ -122,15 +143,29 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     }
 
     private fun setClipDataUri(uri: Uri, intent: Intent) {
-        val mimetypes = arrayOf("image/*")
+        val mimeTypes = arrayOf("image/*")
         if (intent.clipData == null) {
             intent.clipData = ClipData(
-                ClipDescription("uri", mimetypes),
+                ClipDescription("uri", mimeTypes),
                 ClipData.Item(uri)
             )
         } else {
             intent.clipData!!.addItem(ClipData.Item(uri))
         }
+    }
+
+    fun deleteDir(dir: File): Boolean {
+        if (dir.isDirectory) {
+            val children = dir.list() ?: return true
+            for (i in children.indices) {
+                val success = deleteDir(File(dir, children[i]))
+                if (!success) {
+                    return false
+                }
+            }
+        }
+
+        return dir.delete()
     }
 
     private fun allPermissionsGranted(): Boolean {
@@ -172,6 +207,8 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                 if (imagePicker == null) {
                     initializeImagePicker()
                 }
+                loadingProgressBar.visibility = View.VISIBLE
+                importPicturesButton.visibility = View.GONE
                 imagePicker.submit(data)
             }
         }
@@ -184,6 +221,12 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         val adapter = MediaResultsAdapter(images, this)
         adapter.lifecycleOwner = this
         lvResults?.adapter = adapter
+        adapter.finishedLoadingLiveData.observe(this, Observer {
+            if (adapter.finishedLoadingLiveData.value == 1) {
+                loadingProgressBar.visibility = View.GONE
+            }
+        })
+
     }
 
     override fun onRequestPermissionsResult(

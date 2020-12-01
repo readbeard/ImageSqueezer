@@ -1,8 +1,8 @@
 package com.example.imagesqueezer
 
 
+import android.app.ProgressDialog
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import android.view.LayoutInflater
@@ -12,24 +12,20 @@ import android.widget.BaseAdapter
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.MutableLiveData
 import com.bumptech.glide.Glide
 import com.bumptech.glide.annotation.GlideModule
 import com.kbeanie.multipicker.api.entity.ChosenFile
 import com.kbeanie.multipicker.api.entity.ChosenImage
-import id.zelory.compressor.Compressor
-import id.zelory.compressor.constraint.*
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
 import java.io.File
+
 
 @GlideModule
 class MediaResultsAdapter(private val files: List<ChosenFile>, private val context: Context) :
     BaseAdapter() {
 
     lateinit var lifecycleOwner: LifecycleOwner
+    var finishedLoadingLiveData: MutableLiveData<Int> = MutableLiveData(0)
 
     override fun getCount(): Int {
         return files.size
@@ -61,12 +57,18 @@ class MediaResultsAdapter(private val files: List<ChosenFile>, private val conte
         when (itemViewType) {
             TYPE_IMAGE -> showImage(file, mConvertView!!)
         }
+
+        if (position == files.size - 1) {
+            finishedLoadingLiveData.value = 1
+        }
+
         return mConvertView!!
     }
 
 
     private fun showImage(file: ChosenFile, view: View) {
         val image = file as ChosenImage
+
         val tvName = view.findViewById<View>(R.id.tvName) as TextView
         tvName.text = file.getDisplayName()
         val tvCompleteMimeType = view.findViewById<View>(R.id.tvCompleteMimeType) as TextView
@@ -89,20 +91,6 @@ class MediaResultsAdapter(private val files: List<ChosenFile>, private val conte
         view.setOnClickListener {
             Log.i(TAG, "onClick: Tapped: " + image.originalPath)
         }
-
-        runBlocking {
-            lifecycleOwner.lifecycleScope.async(Dispatchers.Main) {
-                Compressor.compress(context, File(file.originalPath)) {
-                    resolution(800,600)
-                    quality(70)
-                    destination(File(file.originalPath))
-
-                }
-
-                //file.originalPath.substring(0, file.originalPath.indexOf(".jpg")) + "-compressed.jpg"
-            }
-        }
-
     }
 
     override fun getViewTypeCount(): Int {
@@ -117,6 +105,8 @@ class MediaResultsAdapter(private val files: List<ChosenFile>, private val conte
         }
         return TYPE_FILE
     }
+
+
 
     companion object {
         private val TAG = MediaResultsAdapter::class.java.simpleName
