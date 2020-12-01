@@ -1,12 +1,39 @@
 <resources>
-  <string name="app_name">ImageSqueezer</string>
-  <string name="action_settings">Settings</string>
-  <!-- Strings used for fragments for navigation -->
-  <string name="first_fragment_label">First Fragment</string>
-  <string name="second_fragment_label">Second Fragment</string>
-  <string name="next">Next</string>
-  <string name="previous">Previous</string>
+    <string name="app_name">ImageSqueezer</string>
+    <string name="action_settings">Settings</string>
+    <!-- Strings used for fragments for navigation -->
+    <string name="first_fragment_label">First Fragment</string>
+    <string name="second_fragment_label">Second Fragment</string>
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
 
-  <string name="hello_first_fragment">Hello first fragment</string>
-  <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+    <string name="hello_first_fragment">Hello first fragment</string>
+    <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+    <string name="mainactivity_pictures_path">/ImageSqueezer/ImageSqueezer Pictures</string>
+    <string name="mainactivity_thumbnail_postfix">scale</string>
+    <string name="mainactivity_compressionstarted">compression started on file  %1$s</string>
+    <string name="mainactivity_compressionsuccess_null">finished compressing, but no result was generated…</string>
+    <string name="compressionsuccess">compression finished and saved to %1$s</string>
+    <string name="mainactivity_compressionerror">error while compressing file %1$s %2$s</string>
+    <string name="mainactivity_image_mimetypes">image/*</string>
+    <string name="mainactivity_permissiongranted">Permission granted!</string>
+    <string name="mainactivity_permissiongranted_specific">Permission granted: %1$s</string>
+    <string name="mainactivity_permissionnotgranted_specific">Permission NOT granted: %1$s</string>
+    <string name="title_activity_settings">SettingsActivity</string>
+
+    <!-- Preference Titles -->
+    <string name="settingsactivity_compression_header">Compression</string>
+    <string name="settingsactivity_compression_resolution_title">Compression max resolution</string>
+    <string name="sync_header">Sync</string>
+
+    <!-- Sync Preferences -->
+    <string name="sync_title">Sync email periodically</string>
+    <string name="attachment_title">Download incoming attachments</string>
+    <string name="attachment_summary_on">Automatically download attachments for incoming emails
+    </string>
+    <string name="attachment_summary_off">Only download attachments when manually requested</string>
+    <string name="preferences_full_hd_res">1280x720</string>
+    <string name="preferences_lowest_res">800x600</string>
+    <string name="preferences_sd_res">720x480</string>
+    <string name="settingsactivity_compression_quality_title">Quality</string>
 </resources>

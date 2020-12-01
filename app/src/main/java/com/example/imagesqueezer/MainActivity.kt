@@ -6,6 +6,7 @@ import android.content.ClipDescription
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -20,7 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.lifecycle.Observer
+import androidx.preference.PreferenceManager
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.kbeanie.multipicker.api.ImagePicker
 import com.kbeanie.multipicker.api.Picker
@@ -86,11 +87,11 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
             imagePicker.pickImage()
         }
 
-        lvResults = findViewById<ListView>(R.id.lvResults);
+        lvResults = findViewById(R.id.lvResults);
         loadingProgressBar = findViewById(R.id.progressBar_cyclic)
         importPicturesButton = findViewById(R.id.button_contentmain_pick)
 
-        deleteDir(File(Environment.getExternalStorageDirectory().absolutePath + "/ImageSqueezer/ImageSqueezer Pictures"))
+        deleteDir(File(Environment.getExternalStorageDirectory().absolutePath + getString(R.string.mainactivity_pictures_path)))
 
         if (!allPermissionsGranted()) {
             runtimePermissions
@@ -99,11 +100,11 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
 
     private fun setIntentForResultAndFinish() {
         val intent = Intent()
-        if (lvResults == null || lvResults!!.adapter == null) {
+        if (lvResults.adapter == null) {
             finish()
             return
         }
-        val results: MediaResultsAdapter = lvResults!!.adapter as MediaResultsAdapter
+        val results: MediaResultsAdapter = lvResults.adapter as MediaResultsAdapter
         val files = ArrayList<Uri>()
 
         val first = retrieveFileFromChosenImageAdapter(0, results)
@@ -121,38 +122,50 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
             files.add(uri)
         }
 
-        if (first.parentFile.listFiles() != null) {
+        if (first.parentFile?.listFiles() != null) {
             for (f in first.parentFile.listFiles()) {
-                if (f.name.contains("scale")) {
+                if (f.name.contains(getString(R.string.mainactivity_thumbnail_postfix))) {
                     f.delete()
                 }
             }
         }
 
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         setResult(Activity.RESULT_OK, intent)
     }
 
-    private fun retrieveFileFromChosenImageAdapter(atIndex: Int, results: MediaResultsAdapter): File {
+    private fun retrieveFileFromChosenImageAdapter(
+        atIndex: Int,
+        results: MediaResultsAdapter
+    ): File {
         return File((results.getItem(atIndex) as ChosenImage).originalPath)
     }
 
-    private fun compressFile(file: File, last: Boolean){
+    private fun compressFile(file: File, last: Boolean) {
+        val bmOptions = BitmapFactory.Options()
+        val image = BitmapFactory.decodeFile(file.absolutePath, bmOptions)
         val compress = Compress.with(this, file)
+        val resolutionHeight = getResolutionHeightParameter(this)
+        val resolutionWidth = getResolutionWidthParameter(this)
+
+        Log.e(TAG, "selected resolution width: $resolutionWidth and height $resolutionHeight and quality ${getQualityParameter(this)}")
         compress
-            .setQuality(70)
-            .setTargetDir(file.parentFile.absolutePath)
+            .setQuality(getQualityParameter(this))
+            .setTargetDir(file.parentFile?.absolutePath)
             .setCompressListener(object : CompressListener {
                 override fun onStart() {
-                    Log.d(TAG, "compression started")
+                    Log.d(
+                        TAG,
+                        getString(R.string.mainactivity_compressionstarted, file.absolutePath)
+                    )
                 }
 
                 override fun onSuccess(result: File?) {
                     if (result == null) {
-                        Log.e(TAG, "finished compressing, but no result was generated...")
+                        Log.e(TAG, getString(R.string.mainactivity_compressionsuccess_null))
                         return
                     }
-                    Log.d(TAG, "finished and saved to ${result.absolutePath}")
+                    Log.d(TAG, getString(R.string.compressionsuccess, result.absolutePath))
                     result.renameTo(file)
                     if (last) {
                         finish()
@@ -160,12 +173,19 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                 }
 
                 override fun onError(throwable: Throwable?) {
-                    Log.d(TAG, "error ${throwable!!.message}")
+                    Log.e(
+                        TAG,
+                        getString(
+                            R.string.mainactivity_compressionerror,
+                            file.absolutePath,
+                            throwable?.message
+                        )
+                    )
                 }
             })
             .strategy(Strategies.compressor())
-            .setMaxWidth(1280f)
-            .setMaxHeight(720f)
+            .setMaxWidth(if (image.width > image.height) resolutionWidth else resolutionHeight)
+            .setMaxHeight(if (image.width > image.height) resolutionHeight else resolutionWidth)
             .launch()
 
     }
@@ -179,7 +199,7 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     }
 
     private fun setClipDataUri(uri: Uri, intent: Intent) {
-        val mimeTypes = arrayOf("image/*")
+        val mimeTypes = arrayOf(getString(R.string.mainactivity_image_mimetypes))
         if (intent.clipData == null) {
             intent.clipData = ClipData(
                 ClipDescription("uri", mimeTypes),
@@ -190,7 +210,7 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         }
     }
 
-    fun deleteDir(dir: File): Boolean {
+    private fun deleteDir(dir: File): Boolean {
         if (dir.isDirectory) {
             val children = dir.list() ?: return true
             for (i in children.indices) {
@@ -215,23 +235,24 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
 
 
     private fun initializeImagePicker() {
-        imagePicker = ImagePicker(this);
-        imagePicker.allowMultiple();
-        imagePicker.setImagePickerCallback(this);
+        imagePicker = ImagePicker(this)
+        imagePicker.allowMultiple()
+        imagePicker.setImagePickerCallback(this)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
+
         return when (item.itemId) {
-            R.id.action_settings -> true
+            R.id.action_settings -> {
+                val settingsIntent = Intent(this, SettingsActivity::class.java)
+                startActivity(settingsIntent)
+                return true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -240,9 +261,6 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == Picker.PICK_IMAGE_DEVICE) {
-                if (imagePicker == null) {
-                    initializeImagePicker()
-                }
                 loadingProgressBar.visibility = View.VISIBLE
                 importPicturesButton.visibility = View.GONE
                 imagePicker.submit(data)
@@ -256,8 +274,8 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     override fun onImagesChosen(images: List<ChosenImage>) {
         val adapter = MediaResultsAdapter(images, this)
         adapter.lifecycleOwner = this
-        lvResults?.adapter = adapter
-        adapter.finishedLoadingLiveData.observe(this, Observer {
+        lvResults.adapter = adapter
+        adapter.finishedLoadingLiveData.observe(this, {
             if (adapter.finishedLoadingLiveData.value == 1) {
                 loadingProgressBar.visibility = View.GONE
             }
@@ -270,7 +288,7 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         permissions: Array<String>,
         grantResults: IntArray
     ) {
-        Log.i(TAG, "Permission granted!")
+        Log.i(TAG, getString(R.string.mainactivity_permissiongranted))
         if (allPermissionsGranted()) {
             //TODO implement
         }
@@ -280,6 +298,12 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     companion object {
         private val TAG = MainActivity::class.simpleName
         private const val PERMISSION_REQUESTS = 1
+        private const val LOWEST_RESOLUTION_HEIGHT = 600f
+        private const val LOWEST_RESOLUTION_WIDTH = 800f
+        private const val FULL_HD_RESOLUTION_HEIGHT = 720f
+        private const val FULL_HD_RESOLUTION_WIDTH = 1280f
+        private const val SD_RESOLUTION_HEIGHT = 480f
+        private const val SD_RESOLUTION_WIDTH = FULL_HD_RESOLUTION_HEIGHT
 
         private fun isPermissionGranted(
             context: Context,
@@ -288,11 +312,54 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
             if (ContextCompat.checkSelfPermission(context, permission!!)
                 == PackageManager.PERMISSION_GRANTED
             ) {
-                Log.i(TAG, "Permission granted: $permission")
+                Log.i(
+                    TAG,
+                    context.getString(R.string.mainactivity_permissiongranted_specific, permission)
+                )
                 return true
             }
-            Log.i(TAG, "Permission NOT granted: $permission")
+            Log.i(
+                TAG,
+                context.getString(R.string.mainactivity_permissionnotgranted_specific, permission)
+            )
             return false
+        }
+
+        //TODO: move those methods to a utils class
+
+        private fun getResolutionHeightParameter(context: Context): Float {
+            when (PreferenceManager.getDefaultSharedPreferences(context).getString("resolution", "null")) {
+                context.getString(R.string.preferences_full_hd_res) -> {
+                    return FULL_HD_RESOLUTION_HEIGHT
+                }
+                context.getString(R.string.preferences_sd_res) -> {
+                    return SD_RESOLUTION_HEIGHT
+                }
+                context.getString(R.string.preferences_lowest_res) -> {
+                    return LOWEST_RESOLUTION_HEIGHT
+                }
+            }
+
+            return FULL_HD_RESOLUTION_HEIGHT
+        }
+
+        private fun getResolutionWidthParameter(context: Context): Float {
+            when (PreferenceManager.getDefaultSharedPreferences(context).getString("resolution", "null")) {
+                context.getString(R.string.preferences_full_hd_res) -> {
+                    return FULL_HD_RESOLUTION_WIDTH
+                }
+                context.getString(R.string.preferences_sd_res) -> {
+                    return SD_RESOLUTION_WIDTH
+                }
+                context.getString(R.string.preferences_lowest_res)-> {
+                    return LOWEST_RESOLUTION_WIDTH
+                }
+            }
+            return FULL_HD_RESOLUTION_WIDTH
+        }
+
+        private fun getQualityParameter(context: Context): Int {
+            return PreferenceManager.getDefaultSharedPreferences(context).getInt("quality", 75)
         }
     }
 }

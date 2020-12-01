@@ -1,0 +1,13 @@
+<resources>
+    <string-array name="compression_resolution_entries">
+        <item>1280x720</item>
+        <item>720x480</item>
+        <item>800x600</item>
+    </string-array>
+
+    <string-array name="compression_resolution_values">
+        <item>1280x720</item>
+        <item>720x480</item>
+        <item>800x600</item>
+    </string-array>
+</resources>
