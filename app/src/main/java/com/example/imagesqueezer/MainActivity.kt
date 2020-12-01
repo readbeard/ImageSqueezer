@@ -20,13 +20,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.core.graphics.PathUtils
 import androidx.lifecycle.Observer
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.kbeanie.multipicker.api.ImagePicker
 import com.kbeanie.multipicker.api.Picker
 import com.kbeanie.multipicker.api.callbacks.ImagePickerCallback
 import com.kbeanie.multipicker.api.entity.ChosenImage
+import me.shouheng.compress.Compress
+import me.shouheng.compress.listener.CompressListener
+import me.shouheng.compress.strategy.Strategies
 import java.io.File
 
 
@@ -113,6 +115,7 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
 
         for (i in 1 until results.count) {
             val file = retrieveFileFromChosenImageAdapter(i, results)
+            compressFile(file, i == results.count - 1)
             uri = retrieveUriFromFile(file)
             setClipDataUri(uri, intent)
             files.add(uri)
@@ -132,6 +135,39 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
 
     private fun retrieveFileFromChosenImageAdapter(atIndex: Int, results: MediaResultsAdapter): File {
         return File((results.getItem(atIndex) as ChosenImage).originalPath)
+    }
+
+    private fun compressFile(file: File, last: Boolean){
+        val compress = Compress.with(this, file)
+        compress
+            .setQuality(70)
+            .setTargetDir(file.parentFile.absolutePath)
+            .setCompressListener(object : CompressListener {
+                override fun onStart() {
+                    Log.d(TAG, "compression started")
+                }
+
+                override fun onSuccess(result: File?) {
+                    if (result == null) {
+                        Log.e(TAG, "finished compressing, but no result was generated...")
+                        return
+                    }
+                    Log.d(TAG, "finished and saved to ${result.absolutePath}")
+                    result.renameTo(file)
+                    if (last) {
+                        finish()
+                    }
+                }
+
+                override fun onError(throwable: Throwable?) {
+                    Log.d(TAG, "error ${throwable!!.message}")
+                }
+            })
+            .strategy(Strategies.compressor())
+            .setMaxWidth(1280f)
+            .setMaxHeight(720f)
+            .launch()
+
     }
 
     private fun retrieveUriFromFile(file: File): Uri {
