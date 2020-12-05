@@ -32,8 +32,12 @@
     <string name="attachment_summary_on">Automatically download attachments for incoming emails
     </string>
     <string name="attachment_summary_off">Only download attachments when manually requested</string>
-    <string name="preferences_full_hd_res">1280x720</string>
+    <string name="preferences_hd_res">1280x720</string>
     <string name="preferences_lowest_res">800x600</string>
     <string name="preferences_sd_res">720x480</string>
     <string name="settingsactivity_compression_quality_title">Quality</string>
+    <string name="preferences_hd_plus_res">1600x900</string>
+    <string name="preferences_full_hd_res">1920x1080</string>
+    <string name="preference_resolution_key">resolution</string>
+    <string name="preferences_quality_key">quality</string>
 </resources>

@@ -145,12 +145,12 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         val bmOptions = BitmapFactory.Options()
         val image = BitmapFactory.decodeFile(file.absolutePath, bmOptions)
         val compress = Compress.with(this, file)
-        val resolutionHeight = getResolutionHeightParameter(this)
-        val resolutionWidth = getResolutionWidthParameter(this)
+        val resolution = PreferenceUtils(this).getResolutionParameter()
+        val quality = PreferenceUtils(this).getQualityParameter()
 
-        Log.e(TAG, "selected resolution width: $resolutionWidth and height $resolutionHeight and quality ${getQualityParameter(this)}")
+        Log.e(TAG, "selected resolution width: ${resolution.first} and height ${resolution.second} and quality $quality")
         compress
-            .setQuality(getQualityParameter(this))
+            .setQuality(quality)
             .setTargetDir(file.parentFile?.absolutePath)
             .setCompressListener(object : CompressListener {
                 override fun onStart() {
@@ -184,8 +184,8 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                 }
             })
             .strategy(Strategies.compressor())
-            .setMaxWidth(if (image.width > image.height) resolutionWidth else resolutionHeight)
-            .setMaxHeight(if (image.width > image.height) resolutionHeight else resolutionWidth)
+            .setMaxWidth(if (image.width > image.height) resolution.first else resolution.second)
+            .setMaxHeight(if (image.width > image.height) resolution.second else resolution.first)
             .launch()
 
     }
@@ -298,12 +298,6 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     companion object {
         private val TAG = MainActivity::class.simpleName
         private const val PERMISSION_REQUESTS = 1
-        private const val LOWEST_RESOLUTION_HEIGHT = 600f
-        private const val LOWEST_RESOLUTION_WIDTH = 800f
-        private const val FULL_HD_RESOLUTION_HEIGHT = 720f
-        private const val FULL_HD_RESOLUTION_WIDTH = 1280f
-        private const val SD_RESOLUTION_HEIGHT = 480f
-        private const val SD_RESOLUTION_WIDTH = FULL_HD_RESOLUTION_HEIGHT
 
         private fun isPermissionGranted(
             context: Context,
@@ -323,43 +317,6 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                 context.getString(R.string.mainactivity_permissionnotgranted_specific, permission)
             )
             return false
-        }
-
-        //TODO: move those methods to a utils class
-
-        private fun getResolutionHeightParameter(context: Context): Float {
-            when (PreferenceManager.getDefaultSharedPreferences(context).getString("resolution", "null")) {
-                context.getString(R.string.preferences_full_hd_res) -> {
-                    return FULL_HD_RESOLUTION_HEIGHT
-                }
-                context.getString(R.string.preferences_sd_res) -> {
-                    return SD_RESOLUTION_HEIGHT
-                }
-                context.getString(R.string.preferences_lowest_res) -> {
-                    return LOWEST_RESOLUTION_HEIGHT
-                }
-            }
-
-            return FULL_HD_RESOLUTION_HEIGHT
-        }
-
-        private fun getResolutionWidthParameter(context: Context): Float {
-            when (PreferenceManager.getDefaultSharedPreferences(context).getString("resolution", "null")) {
-                context.getString(R.string.preferences_full_hd_res) -> {
-                    return FULL_HD_RESOLUTION_WIDTH
-                }
-                context.getString(R.string.preferences_sd_res) -> {
-                    return SD_RESOLUTION_WIDTH
-                }
-                context.getString(R.string.preferences_lowest_res)-> {
-                    return LOWEST_RESOLUTION_WIDTH
-                }
-            }
-            return FULL_HD_RESOLUTION_WIDTH
-        }
-
-        private fun getQualityParameter(context: Context): Int {
-            return PreferenceManager.getDefaultSharedPreferences(context).getInt("quality", 75)
         }
     }
 }

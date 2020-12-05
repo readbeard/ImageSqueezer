@@ -4,7 +4,7 @@
     <PreferenceCategory app:title="@string/settingsactivity_compression_header">
 
         <ListPreference
-            app:defaultValue="@string/preferences_full_hd_res"
+            app:defaultValue="@string/preferences_hd_res"
             app:entries="@array/compression_resolution_entries"
             app:entryValues="@array/compression_resolution_values"
             app:key="resolution"
