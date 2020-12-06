@@ -1,10 +1,7 @@
 package com.example.imagesqueezer
 
 import android.app.Activity
-import android.content.ClipData
-import android.content.ClipDescription
-import android.content.Context
-import android.content.Intent
+import android.content.*
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -21,7 +18,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.preference.PreferenceManager
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.kbeanie.multipicker.api.ImagePicker
 import com.kbeanie.multipicker.api.Picker
@@ -39,38 +35,7 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     private lateinit var lvResults: ListView
     private lateinit var loadingProgressBar: ProgressBar
     private lateinit var importPicturesButton: Button
-
-    private val requiredPermissions: Array<String?>
-        get() = try {
-            val info = this.packageManager
-                .getPackageInfo(this.packageName, PackageManager.GET_PERMISSIONS)
-            val ps = info.requestedPermissions
-            if (ps != null && ps.isNotEmpty()) {
-                ps
-            } else {
-                arrayOfNulls(0)
-            }
-        } catch (e: Exception) {
-            arrayOfNulls(0)
-        }
-
-    private val runtimePermissions: Unit
-        get() {
-            val allNeededPermissions: MutableList<String?> = ArrayList()
-            for (permission in requiredPermissions) {
-                if (!isPermissionGranted(this, permission)) {
-                    allNeededPermissions.add(permission)
-                }
-            }
-            if (allNeededPermissions.isNotEmpty()) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    allNeededPermissions.toTypedArray(),
-                    PERMISSION_REQUESTS
-                )
-            }
-        }
-
+    private lateinit var permissionHandler: PermissionHandler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,9 +58,8 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
 
         deleteDir(File(Environment.getExternalStorageDirectory().absolutePath + getString(R.string.mainactivity_pictures_path)))
 
-        if (!allPermissionsGranted()) {
-            runtimePermissions
-        }
+        permissionHandler =  PermissionHandler(this)
+        permissionHandler.checkPermissions()
     }
 
     private fun setIntentForResultAndFinish() {
@@ -148,7 +112,10 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         val resolution = PreferenceUtils(this).getResolutionParameter()
         val quality = PreferenceUtils(this).getQualityParameter()
 
-        Log.e(TAG, "selected resolution width: ${resolution.first} and height ${resolution.second} and quality $quality")
+        Log.e(
+            TAG,
+            "selected resolution width: ${resolution.first} and height ${resolution.second} and quality $quality"
+        )
         compress
             .setQuality(quality)
             .setTargetDir(file.parentFile?.absolutePath)
@@ -224,16 +191,6 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         return dir.delete()
     }
 
-    private fun allPermissionsGranted(): Boolean {
-        for (permission in requiredPermissions) {
-            if (!isPermissionGranted(this, permission)) {
-                return false
-            }
-        }
-        return true
-    }
-
-
     private fun initializeImagePicker() {
         imagePicker = ImagePicker(this)
         imagePicker.allowMultiple()
@@ -254,6 +211,21 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                 return true
             }
             else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        permissionHandler.checkPermissions()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (!permissionHandler.allPermissionsGranted()) {
+            for (permission in permissions) {
+                if (permissionHandler.neverAskAgainSelected(this, permission)) {
+                    permissionHandler.displayNeverAskAgainDialog(permission)
+                }
+            }
         }
     }
 

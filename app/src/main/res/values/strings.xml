@@ -40,4 +40,7 @@
     <string name="preferences_full_hd_res">1920x1080</string>
     <string name="preference_resolution_key">resolution</string>
     <string name="preferences_quality_key">quality</string>
+    <string name="permissionhandler_dialog_neveraskagain">"We need the permission %1$s performing necessary task. Please permit the permission through Settings screen.\n\n Select Permissions -> Enable permission"</string>
+    <string name="permissionhandler_positivebutton">Permit Manually</string>
+    <string name="permissionhandler_negativebutton">Cancel</string>
 </resources>
