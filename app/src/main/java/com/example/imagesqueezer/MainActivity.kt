@@ -6,31 +6,21 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
-import android.util.Log
 import android.view.*
 import android.widget.Button
 import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.snackbar.BaseTransientBottomBar
-import com.google.android.material.snackbar.Snackbar
 import com.kbeanie.multipicker.api.ImagePicker
 import com.kbeanie.multipicker.api.Picker
 import com.kbeanie.multipicker.api.callbacks.ImagePickerCallback
 import com.kbeanie.multipicker.api.entity.ChosenImage
 import com.mikepenz.fastadapter.FastAdapter
-import com.mikepenz.fastadapter.IAdapter
-import com.mikepenz.fastadapter.ISelectionListener
 import com.mikepenz.fastadapter.adapters.ItemAdapter
-import com.mikepenz.fastadapter.helpers.ActionModeHelper
 import com.mikepenz.fastadapter.helpers.UndoHelper
-import com.mikepenz.fastadapter.select.SelectExtension
-import com.mikepenz.fastadapter.select.getSelectExtension
 import java.io.File
 
 
@@ -42,9 +32,6 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     private lateinit var loadingProgressBar: ProgressBar
     private lateinit var importPicturesButton: Button
     private lateinit var permissionHandler: PermissionHandler
-    private lateinit var mActionModeHelper: ActionModeHelper<ChosenImageRvItem>
-    private lateinit var mUndoHelper: UndoHelper<*>
-    private lateinit var selectExtension: SelectExtension<ChosenImageRvItem>
     private var toolbar: Toolbar? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,21 +43,20 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
             setIntentForResultAndFinish()
         }
 
-        initializeImagePicker()
-
         findViewById<Button>(R.id.button_contentmain_pick).setOnClickListener {
-            imagePicker.pickImage()
+            launchProperPicker(this)
         }
 
         recyclerViewResults = findViewById(R.id.lvResults);
         loadingProgressBar = findViewById(R.id.progressBar_cyclic)
         importPicturesButton = findViewById(R.id.button_contentmain_pick)
-        toolbar = findViewById<Toolbar>(R.id.toolbar)
-
-        FileUtils.deleteDir(File(Environment.getExternalStorageDirectory().absolutePath + getString(R.string.mainactivity_pictures_path)))
+        toolbar = findViewById(R.id.toolbar)
 
         permissionHandler = PermissionHandler(this)
         permissionHandler.checkPermissions()
+
+        FileUtils.deleteDir(File(Environment.getExternalStorageDirectory().absolutePath + getString(R.string.mainactivity_pictures_path)))
+        initializeImagePicker()
     }
 
     private fun setIntentForResultAndFinish() {
@@ -184,50 +170,9 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         for (chosenImage in images) {
             itemAdapter.add(ChosenImageRvItem(chosenImage))
         }
-        fastAdapter = FastAdapter.with(itemAdapter)
-        fastAdapter.onPreClickListener =
-            { _: View?, _: IAdapter<ChosenImageRvItem>, itemChosen: ChosenImageRvItem, _: Int ->
-                //we handle the default onClick behavior for the actionMode. This will return null if it didn't do anything and you can handle a normal onClick
-                val res = mActionModeHelper.onClick(itemChosen)
-                res ?: false
-            }
 
-        fastAdapter.onPreLongClickListener =
-            { _: View, _: IAdapter<ChosenImageRvItem>, _: ChosenImageRvItem, position: Int ->
-                val actionMode = mActionModeHelper.onLongClick(this@MainActivity, position)
-                if (actionMode != null) {
-                    findViewById<View>(R.id.action_mode_bar).setBackgroundColor(ContextCompat.getColor(this,
-                            R.color.purple_500))
-                }
-                actionMode != null
-            }
+        fastAdapter = FastAdapterInitializr().initializeFastadapter(this, itemAdapter)
 
-        mUndoHelper = UndoHelper(fastAdapter, object : UndoHelper.UndoListener<ChosenImageRvItem> {
-            override fun commitRemove(
-                positions: Set<Int>,
-                removed: ArrayList<FastAdapter.RelativeInfo<ChosenImageRvItem>>
-            ) {
-                Log.e("UndoHelper", "Positions: " + positions.toString() + " Removed: " + removed.size)
-            }
-        })
-
-        selectExtension = fastAdapter.getSelectExtension()
-        selectExtension.apply {
-            isSelectable = true
-            multiSelect = true
-            selectOnLongClick = true
-            selectionListener = object : ISelectionListener<ChosenImageRvItem> {
-                override fun onSelectionChanged(itemChosen: ChosenImageRvItem, selected: Boolean) {
-                    Log.e("FastAdapter", "SelectedCount: " + selectExtension.selections.size + " ItemsCount: " +
-                            selectExtension.selectedItems.size)
-
-
-                }
-            }
-
-        }
-
-        mActionModeHelper = ActionModeHelper(fastAdapter, R.menu.cab, ActionBarCallBack())
         recyclerViewResults.adapter = fastAdapter
         recyclerViewResults.viewTreeObserver.addOnGlobalLayoutListener(object :
             ViewTreeObserver.OnGlobalLayoutListener {
@@ -239,7 +184,7 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         })
     }
 
-    private fun launchGooglePhotosPicker(callingActivity: Activity?) {
+    private fun launchProperPicker(callingActivity: Activity?) {
         if (callingActivity != null && isGooglePhotosInstalled(this)) {
             val intent = Intent()
             intent.action = Intent.ACTION_PICK
@@ -259,6 +204,8 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                     }
                 }
             }
+        } else {
+            imagePicker.pickImage()
         }
     }
 
@@ -271,71 +218,6 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
             ) != null
         } catch (e: PackageManager.NameNotFoundException) {
             false
-        }
-    }
-
-
-    internal inner class ActionBarCallBack : androidx.appcompat.view.ActionMode.Callback {
-        override fun onCreateActionMode(mode: androidx.appcompat.view.ActionMode?, menu: Menu?): Boolean {
-            return true
-        }
-
-        override fun onPrepareActionMode(mode: androidx.appcompat.view.ActionMode?, menu: Menu?): Boolean {
-            return false
-        }
-
-        override fun onActionItemClicked(mode: androidx.appcompat.view.ActionMode?, item: MenuItem?): Boolean {
-            when (item?.itemId) {
-                R.id.item_delete -> {
-                    mUndoHelper.remove(findViewById(android.R.id.content),
-                            "Item removed",
-                            "Undo",
-                            Snackbar.LENGTH_LONG,
-                            selectExtension.selections)
-                            .addCallback(object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
-                                override fun onShown(transientBottomBar: Snackbar?) {
-                                    super.onShown(transientBottomBar)
-                                }
-
-                                override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
-                                    super.onDismissed(transientBottomBar, event)
-                                    if (event != Snackbar.Callback.DISMISS_EVENT_TIMEOUT) {
-                                        selectExtension.deselect()
-                                    }
-                                }
-                            })
-                    mode!!.finish()
-                }
-                R.id.item_selectall -> {
-                    return if (!item.isChecked) {
-                        performSelectAllClick(true, mode, item)
-                        true
-                    } else {
-                        performSelectAllClick(false, mode, item)
-                        true
-                    }
-                }
-            }
-
-            return true
-        }
-
-        override fun onDestroyActionMode(mode: androidx.appcompat.view.ActionMode?) {
-        }
-
-        private fun performSelectAllClick(checked: Boolean, mode: androidx.appcompat.view.ActionMode?, item: MenuItem?) {
-            if (checked) {
-                item?.icon = ResourcesCompat.getDrawable(resources, R.drawable.ic_checkbox_checked, theme)
-                for (i in 0..fastAdapter.itemCount) {
-                    selectExtension.select(i)
-                }
-                item?.isChecked = true
-            } else {
-                item?.icon = ResourcesCompat.getDrawable(resources, R.drawable.ic_checkbox_unchecked, theme)
-                selectExtension.deselect()
-                item?.isChecked = false
-            }
-            mode?.title = selectExtension.selectedItems.size.toString()
         }
     }
 
