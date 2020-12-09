@@ -103,6 +103,7 @@ class PermissionHandler(private val activity: AppCompatActivity) {
             intent.data = uri;
             activity.startActivity(intent);
         }
+
         builder.setNegativeButton(activity.getString(R.string.permissionhandler_negativebutton)) { _, _ -> activity.finish() }
         builder.setOnDismissListener { synchronized(lock) { showingDialog = false } }
         builder.show()
