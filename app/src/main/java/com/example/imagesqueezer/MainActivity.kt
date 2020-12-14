@@ -6,11 +6,13 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
-import android.view.*
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewTreeObserver
 import android.widget.Button
 import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -20,26 +22,25 @@ import com.kbeanie.multipicker.api.callbacks.ImagePickerCallback
 import com.kbeanie.multipicker.api.entity.ChosenImage
 import com.mikepenz.fastadapter.FastAdapter
 import com.mikepenz.fastadapter.adapters.ItemAdapter
-import com.mikepenz.fastadapter.helpers.UndoHelper
 import java.io.File
 
 
 class MainActivity : AppCompatActivity(), ImagePickerCallback,
     ActivityCompat.OnRequestPermissionsResultCallback {
+    private lateinit var itemAdapter: ItemAdapter<ChosenImageRvItem>
     private lateinit var fastAdapter: FastAdapter<ChosenImageRvItem>
     private lateinit var imagePicker: ImagePicker
     private lateinit var recyclerViewResults: RecyclerView
     private lateinit var loadingProgressBar: ProgressBar
     private lateinit var importPicturesButton: Button
     private lateinit var permissionHandler: PermissionHandler
-    private var toolbar: Toolbar? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setSupportActionBar(findViewById(R.id.toolbar))
 
-        findViewById<FloatingActionButton>(R.id.fab).setOnClickListener { view ->
+        findViewById<FloatingActionButton>(R.id.fab).setOnClickListener {
             setIntentForResultAndFinish()
         }
 
@@ -50,7 +51,10 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
         recyclerViewResults = findViewById(R.id.lvResults);
         loadingProgressBar = findViewById(R.id.progressBar_cyclic)
         importPicturesButton = findViewById(R.id.button_contentmain_pick)
-        toolbar = findViewById(R.id.toolbar)
+
+        itemAdapter = ItemAdapter()
+        fastAdapter = FastAdapterInitializr().initializeFastadapter(this, itemAdapter)
+        recyclerViewResults.adapter = fastAdapter
 
         permissionHandler = PermissionHandler(this)
         permissionHandler.checkPermissions()
@@ -61,12 +65,16 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
 
     private fun setIntentForResultAndFinish() {
         val intent = Intent()
-        if (recyclerViewResults.adapter == null) {
+        var results = recyclerViewResults.adapter
+        val files = ArrayList<Uri>()
+
+        if (results == null || results.itemCount == 0) {
             finish()
+            FileUtils.deleteDir(File(Environment.getExternalStorageDirectory().absolutePath + getString(R.string.mainactivity_pictures_path)))
             return
         }
-        val results = recyclerViewResults.adapter as FastAdapter<ChosenImageRvItem>
-        val files = ArrayList<Uri>()
+
+        results = results as FastAdapter<ChosenImageRvItem>
 
         val first = retrieveFileFromChosenImageAdapter(0, results)
         recyclerViewResults.visibility = View.GONE
@@ -132,6 +140,10 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
                 startActivity(settingsIntent)
                 return true
             }
+            R.id.action_add -> {
+                launchProperPicker(this)
+                return true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -166,14 +178,9 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     }
 
     override fun onImagesChosen(images: List<ChosenImage>) {
-        val itemAdapter = ItemAdapter<ChosenImageRvItem>()
         for (chosenImage in images) {
             itemAdapter.add(ChosenImageRvItem(chosenImage))
         }
-
-        fastAdapter = FastAdapterInitializr().initializeFastadapter(this, itemAdapter)
-
-        recyclerViewResults.adapter = fastAdapter
         recyclerViewResults.viewTreeObserver.addOnGlobalLayoutListener(object :
             ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
@@ -185,10 +192,14 @@ class MainActivity : AppCompatActivity(), ImagePickerCallback,
     }
 
     private fun launchProperPicker(callingActivity: Activity?) {
-        if (callingActivity != null && isGooglePhotosInstalled(this)) {
+        if (callingActivity == null) {
+            return
+        }
+        if (isGooglePhotosInstalled(this)) {
             val intent = Intent()
             intent.action = Intent.ACTION_PICK
-            intent.type = "image/*"
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            intent.type = getString(R.string.mainactivity_image_mimetypes)
             val resolveInfoList = callingActivity.packageManager.queryIntentActivities(intent, 0)
             for (i in resolveInfoList.indices) {
                 if (resolveInfoList[i] != null) {
